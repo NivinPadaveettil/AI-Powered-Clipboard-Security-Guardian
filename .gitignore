@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.venv/
+.env
+.DS_Store
+
+# IDE/editor folders
+.vscode/
+
+# Logs and generated outputs
+logs/
+reports/
+notebooks/
+
+# Large project data/model artifacts
+models/
+dataset/
+tmp_trainer/
+
+# Local database and cache files
+*.sqlite3
+*.db
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
