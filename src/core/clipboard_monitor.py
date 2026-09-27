@@ -6,16 +6,20 @@ from src.predict import predict
 from src.core.risk_scoring import calculate_risk
 from src.database.sqlite_logger import logger
 from src.services.clipboard_service import clear_clipboard
+from src.services.notification_service import NotificationService
+from src.config.settings_manager import settings_manager
 
 
 class ClipboardMonitor:
 
-    def __init__(self):
-
+    def __init__(self, on_notification=None):
         self.last_text = ""
         self.running = False
 
-        # Prevent multiple clear timers
+        # Optional notification callback (e.g. Qt signal for main thread execution)
+        self.on_notification = on_notification
+
+        # Prevent duplicate clear timers
         self.clear_scheduled = False
 
         # Text currently waiting to be cleared
@@ -23,6 +27,9 @@ class ClipboardMonitor:
 
         # Protect shared state
         self.lock = threading.Lock()
+
+        # Persistent settings
+        self.settings = settings_manager
 
     # =========================================================
     # Process Clipboard
@@ -36,8 +43,8 @@ class ClipboardMonitor:
                 return
 
             # -------------------------------------------------
-            # Prevent duplicate processing while a sensitive
-            # clipboard value is waiting to be cleared.
+            # Prevent duplicate processing of the same value
+            # while it is waiting for automatic clearing.
             # -------------------------------------------------
 
             with self.lock:
@@ -60,7 +67,7 @@ class ClipboardMonitor:
             )
 
             # -------------------------------------------------
-            # Log detection
+            # Log Detection
             # -------------------------------------------------
 
             try:
@@ -112,42 +119,95 @@ class ClipboardMonitor:
                 risk.action
             )
 
-            if risk.timeout > 0:
+            print("=" * 60)
+
+            # -------------------------------------------------
+            # Desktop Notification
+            # -------------------------------------------------
+
+            notifications_enabled = self.settings.get(
+                "notifications_enabled"
+            )
+
+            if notifications_enabled and risk.category != "safe":
+                try:
+                    if callable(self.on_notification):
+                        self.on_notification(risk)
+                    else:
+                        NotificationService.show_notification(risk)
+                except Exception as e:
+                    print("Notification Dispatch Error:", e)
+
+            # -------------------------------------------------
+            # Read Settings
+            # -------------------------------------------------
+
+            auto_clear_enabled = self.settings.get(
+                "auto_clear_enabled"
+            )
+
+            configured_timeout = self.settings.get(
+                "clear_timeout"
+            )
+
+            # -------------------------------------------------
+            # Automatic Clear Disabled
+            # -------------------------------------------------
+
+            if not auto_clear_enabled:
 
                 print(
-                    "Auto Clear    :",
-                    risk.timeout,
-                    "seconds"
+                    "Automatic clipboard clearing is disabled."
                 )
 
-            print("=" * 60)
+                return
+
+            # -------------------------------------------------
+            # Validate Timeout
+            # -------------------------------------------------
+
+            if configured_timeout <= 0:
+
+                print(
+                    "Automatic clipboard clearing disabled "
+                    "because timeout is invalid."
+                )
+
+                return
 
             # -------------------------------------------------
             # Schedule Clear
             # -------------------------------------------------
 
-            if risk.timeout > 0:
+            with self.lock:
 
-                with self.lock:
+                # Another clear is already running
+                if self.clear_scheduled:
 
-                    # Another clear is already running
-                    if self.clear_scheduled:
+                    print(
+                        "Clipboard clear already scheduled."
+                    )
 
-                        print(
-                            "Clipboard clear already scheduled."
-                        )
+                    return
 
-                        return
+                self.clear_scheduled = True
 
-                    self.clear_scheduled = True
+                self.pending_clear_text = text
 
-                    self.pending_clear_text = text
+            print(
+                "Auto Clear    :",
+                configured_timeout,
+                "seconds"
+            )
 
-                threading.Thread(
-                    target=self.clear_after_delay,
-                    args=(risk.timeout, text),
-                    daemon=True
-                ).start()
+            threading.Thread(
+                target=self.clear_after_delay,
+                args=(
+                    configured_timeout,
+                    text
+                ),
+                daemon=True
+            ).start()
 
         except Exception as e:
 
@@ -176,11 +236,29 @@ class ClipboardMonitor:
         try:
 
             # -------------------------------------------------
-            # Only clear if the clipboard still contains the
-            # sensitive value that triggered the timer.
+            # Check Auto Clear Setting Again
+            # -------------------------------------------------
+
+            if not self.settings.get(
+                "auto_clear_enabled"
+            ):
+
+                print(
+                    "Auto Clear disabled. "
+                    "Clear operation skipped."
+                )
+
+                return
+
+            # -------------------------------------------------
+            # Read Current Clipboard
             # -------------------------------------------------
 
             current_text = self.get_clipboard_text()
+
+            # -------------------------------------------------
+            # Only Clear Original Content
+            # -------------------------------------------------
 
             if current_text == scheduled_text:
 
@@ -225,7 +303,6 @@ class ClipboardMonitor:
             text = pyperclip.paste()
 
             if text is None:
-
                 return ""
 
             return str(text)
@@ -251,11 +328,25 @@ class ClipboardMonitor:
 
         while self.running:
 
-            clipboard_text = self.get_clipboard_text()
+            # -------------------------------------------------
+            # Check Monitoring Setting
+            # -------------------------------------------------
+
+            if not self.settings.get(
+                "monitoring_enabled"
+            ):
+
+                self.last_text = ""
+
+                time.sleep(0.5)
+
+                continue
 
             # -------------------------------------------------
-            # Ignore empty clipboard
+            # Read Clipboard
             # -------------------------------------------------
+
+            clipboard_text = self.get_clipboard_text()
 
             if not clipboard_text:
 
@@ -264,33 +355,18 @@ class ClipboardMonitor:
                 continue
 
             # -------------------------------------------------
-            # Check whether clipboard changed
+            # Detect Clipboard Change
             # -------------------------------------------------
 
             if clipboard_text != self.last_text:
 
                 self.last_text = clipboard_text
 
-                # -------------------------------------------------
-                # Don't start another processing thread for the
-                # same sensitive value while a timer is active.
-                # -------------------------------------------------
-
-                with self.lock:
-
-                    already_pending = (
-                        self.clear_scheduled
-                        and clipboard_text
-                        == self.pending_clear_text
-                    )
-
-                if not already_pending:
-
-                    threading.Thread(
-                        target=self.process_clipboard,
-                        args=(clipboard_text,),
-                        daemon=True
-                    ).start()
+                threading.Thread(
+                    target=self.process_clipboard,
+                    args=(clipboard_text,),
+                    daemon=True,
+                ).start()
 
             time.sleep(0.5)
 

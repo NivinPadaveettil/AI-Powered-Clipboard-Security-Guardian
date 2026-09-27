@@ -12,6 +12,7 @@ from PyQt6.QtCore import Qt
 from src.gui.dashboard import Dashboard
 from src.gui.history import History
 from src.gui.settings import Settings
+from src.gui.security_privacy import SecurityPrivacy
 
 
 class MainWindow(QMainWindow):
@@ -26,117 +27,55 @@ class MainWindow(QMainWindow):
 
         self.resize(1100, 700)
 
-        # =====================================================
         # Central Widget
-        # =====================================================
-
         central = QWidget()
+        main_layout = QHBoxLayout(central)
 
-        main_layout = QHBoxLayout(
-            central
-        )
-
-        # =====================================================
         # Sidebar
-        # =====================================================
-
         sidebar = QWidget()
-
         sidebar.setFixedWidth(220)
+        sidebar_layout = QVBoxLayout(sidebar)
 
-        sidebar_layout = QVBoxLayout(
-            sidebar
-        )
-
-        logo = QLabel(
-            "Clipboard\nGuardian"
-        )
-
+        logo = QLabel("Clipboard\nGuardian")
         logo.setObjectName("Logo")
-
-        logo.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
-
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sidebar_layout.addWidget(logo)
 
-        # -----------------------------------------------------
         # Navigation Buttons
-        # -----------------------------------------------------
+        self.dashboard_button = QPushButton("Dashboard")
+        self.history_button = QPushButton("Detection History")
+        self.settings_button = QPushButton("Settings")
+        self.privacy_button = QPushButton("Security & Privacy")
 
-        self.dashboard_button = QPushButton(
-            "Dashboard"
-        )
-
-        self.history_button = QPushButton(
-            "Detection History"
-        )
-
-        self.settings_button = QPushButton(
-            "Settings"
-        )
-
-        sidebar_layout.addWidget(
-            self.dashboard_button
-        )
-
-        sidebar_layout.addWidget(
-            self.history_button
-        )
-
-        sidebar_layout.addWidget(
-            self.settings_button
-        )
+        sidebar_layout.addWidget(self.dashboard_button)
+        sidebar_layout.addWidget(self.history_button)
+        sidebar_layout.addWidget(self.settings_button)
+        sidebar_layout.addWidget(self.privacy_button)
 
         sidebar_layout.addStretch()
 
-        version = QLabel(
-            "AI Security Clipboard Guardian\nv1.0"
-        )
-
-        version.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
-
+        version = QLabel("AI Security Clipboard Guardian\nv1.0")
+        version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sidebar_layout.addWidget(version)
 
-        # =====================================================
-        # Content
-        # =====================================================
-
+        # Content Stack
         self.stack = QStackedWidget()
 
         self.dashboard = Dashboard()
         self.history = History()
         self.settings = Settings()
+        self.privacy = SecurityPrivacy()
 
-        self.stack.addWidget(
-            self.dashboard
-        )
+        self.stack.addWidget(self.dashboard)
+        self.stack.addWidget(self.history)
+        self.stack.addWidget(self.settings)
+        self.stack.addWidget(self.privacy)
 
-        self.stack.addWidget(
-            self.history
-        )
-
-        self.stack.addWidget(
-            self.settings
-        )
-
-        # =====================================================
-        # Navigation
-        # =====================================================
-
-        self.dashboard_button.clicked.connect(
-            lambda: self.show_page(0)
-        )
-
-        self.history_button.clicked.connect(
-            lambda: self.show_page(1)
-        )
-
-        self.settings_button.clicked.connect(
-            lambda: self.show_page(2)
-        )
+        # Navigation Connections
+        self.dashboard_button.clicked.connect(lambda: self.show_page(0))
+        self.history_button.clicked.connect(lambda: self.show_page(1))
+        self.settings_button.clicked.connect(lambda: self.show_page(2))
+        self.privacy_button.clicked.connect(lambda: self.show_page(3))
 
         # =====================================================
         # Layout
@@ -196,87 +135,85 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("""
 
             QMainWindow {
-                background: #f5f7fb;
-            }
-
-            QWidget {
-                font-family: Arial;
-                font-size: 14px;
+                background: #eef2f7;
             }
 
             #Logo {
-                font-size: 22px;
+                color: #202638;
                 font-weight: bold;
                 padding: 20px;
             }
 
             QPushButton {
-                background: transparent;
-                border: none;
+                background: #ffffff;
+                color: #243044;
+                border: 1px solid #ccd3e0;
                 padding: 12px;
                 text-align: left;
                 border-radius: 6px;
             }
 
             QPushButton:hover {
-                background: #e8edf7;
+                background: #eaf0f8;
             }
 
             #Title {
-                font-size: 28px;
+                color: #182033;
                 font-weight: bold;
             }
 
             #Subtitle {
-                color: #777;
-                font-size: 14px;
+                color: #667085;
             }
 
             #StatCard {
-                background: white;
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
                 border-radius: 10px;
                 padding: 10px;
                 min-height: 100px;
             }
 
             #CardTitle {
-                color: #777;
-                font-size: 12px;
+                color: #475569;
                 font-weight: bold;
             }
 
             #CardValue {
-                font-size: 30px;
+                color: #1f2937;
                 font-weight: bold;
             }
 
             #StatusFrame {
-                background: white;
+                background: #f8fafc;
+                border: 1px solid #cbd5e1;
                 border-radius: 10px;
                 padding: 15px;
             }
 
             #SectionTitle {
-                font-size: 18px;
+                color: #334155;
                 font-weight: bold;
             }
 
             #ActiveStatus {
-                color: #1a9c55;
+                color: #0d7a43;
                 font-weight: bold;
             }
 
             QTableWidget {
-                background: white;
-                border: none;
-                gridline-color: #eeeeee;
+                background: #ffffff;
+                color: #172033;
+                border: 1px solid #cbd5e1;
+                gridline-color: #dce3ea;
             }
 
             QHeaderView::section {
-                background: #eef1f6;
+                background: #eef2f8;
+                color: #27364b;
                 padding: 8px;
                 font-weight: bold;
-                border: none;
+                border: 1px solid #cbd5e1;
             }
 
         """)

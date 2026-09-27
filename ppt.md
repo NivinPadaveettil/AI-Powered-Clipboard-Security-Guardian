@@ -225,27 +225,27 @@ Softmax Probability Activation ──> Predicted Class Label & Confidence Score
 
 ## Slide 9: Model Evaluation
 
-### Outstanding Test Performance Across 5,636 Test Samples
+### Outstanding Test Performance Across 5,637 Test Samples
 
-- **Evaluation Metrics:** Evaluated on the unseen test dataset using standard classification metrics:
-  - **Accuracy:** **1.00 (100.00%)**
-  - **Weighted Precision:** **1.00 (100.00%)**
-  - **Weighted Recall:** **1.00 (100.00%)**
-  - **Weighted F1-Score:** **1.00 (100.00%)**
+- **Evaluation Metrics:** Evaluated on the unseen test dataset using standard classification metrics from the current trained model:
+  - **Accuracy:** **0.999823 (99.9823%)**
+  - **Weighted Precision:** **0.999823 (99.9823%)**
+  - **Weighted Recall:** **0.999823 (99.9823%)**
+  - **Weighted F1-Score:** **0.999823 (99.9823%)**
 
 #### Class-Wise Classification Performance Table
 
 | Class Label (`label`) | Precision | Recall | F1-Score | Test Support | Evaluation Result |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **`api_key`** | 1.00 | 1.00 | 1.00 | 993 | Perfect |
-| **`db_credentials`** | 1.00 | 1.00 | 1.00 | 857 | Perfect |
-| **`jwt`** | 1.00 | 1.00 | 1.00 | 174 | Perfect |
-| **`otp`** | 1.00 | 1.00 | 1.00 | 1,000 | Perfect |
+| **`api_key`** | 1.00 | 1.00 | 1.00 | 1006 | Perfect |
+| **`db_credentials`** | 1.00 | 1.00 | 1.00 | 860 | Perfect |
+| **`jwt`** | 1.00 | 1.00 | 1.00 | 169 | Perfect |
+| **`otp`** | 1.00 | 1.00 | 1.00 | 1000 | Perfect |
 | **`password`** | 1.00 | 1.00 | 1.00 | 668 | Perfect |
-| **`payment`** | 1.00 | 1.00 | 1.00 | 1,000 | Perfect |
-| **`safe`** | 1.00 | 1.00 | 1.00 | 611 | Perfect |
-| **`ssh_key`** | 1.00 | 1.00 | 1.00 | 333 | Perfect |
-| **Overall Summary** | **1.00** | **1.00** | **1.00** | **5,636** | **Optimal Performance** |
+| **`payment`** | 1.00 | 1.00 | 1.00 | 1000 | Perfect |
+| **`safe`** | 1.00 | 1.00 | 1.00 | 609 | Perfect |
+| **`ssh_key`** | 1.00 | 1.00 | 1.00 | 325 | Perfect |
+| **Overall Summary** | **1.00** | **1.00** | **1.00** | **5,637** | **Optimal Performance** |
 
 #### Metric Formula Definitions
 $$\text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}, \quad \text{Precision} = \frac{TP}{TP + FP}$$
@@ -253,7 +253,7 @@ $$\text{Recall} = \frac{TP}{TP + FN}, \quad \text{F1-Score} = 2 \times \frac{\te
 
 ---
 > 🎤 **Speaker Notes:**  
-> "Model evaluation on 5,636 test samples yielded 100% Accuracy, Precision, Recall, and F1-score across all 8 classes. The distinct structure of API keys, SSH keys, JWT tokens, and passwords allows our DistilBERT model to classify sensitive content with zero errors."
+> "Model evaluation on 5,637 test samples yielded 99.9823% Accuracy, Precision, Recall, and F1-score across all 8 classes using the current trained DistilBERT model. The distinct structure of API keys, SSH keys, JWT tokens, and passwords allows our classifier to detect sensitive clipboard content with near-perfect accuracy."
 
 ---
 

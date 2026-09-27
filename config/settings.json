@@ -1,0 +1,7 @@
+{
+    "monitoring_enabled": true,
+    "auto_clear_enabled": true,
+    "clear_timeout": 20,
+    "notifications_enabled": true,
+    "start_monitoring_automatically": true
+}

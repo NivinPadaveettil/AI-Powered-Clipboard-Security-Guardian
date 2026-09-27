@@ -10,10 +10,60 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QMessageBox,
     QHeaderView,
+    QDialog,
+    QFormLayout,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 
 from src.database.sqlite_logger import logger
+from src.core.risk_scoring import RISK_TABLE
+
+
+class DetectionDetailsDialog(QDialog):
+
+    def __init__(self, record, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Detection Details")
+        self.resize(450, 320)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        title = QLabel(f"Detection #{record[0]}")
+        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b;")
+        layout.addWidget(title)
+
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        # Record fields: id, timestamp, category, confidence, risk_score, risk_level, action
+        rec_id, timestamp, category, confidence, risk_score, risk_level, action = record
+
+        try:
+            conf_str = f"{float(confidence) * 100:.2f}%"
+        except (ValueError, TypeError):
+            conf_str = str(confidence)
+
+        explanation = RISK_TABLE.get(category, None)
+        exp_text = explanation.explanation if explanation else "Sensitivity analysis record."
+
+        form.addRow("Timestamp:", QLabel(str(timestamp)))
+        form.addRow("Category:", QLabel(str(category).upper()))
+        form.addRow("Confidence Score:", QLabel(conf_str))
+        form.addRow("Risk Score:", QLabel(f"{risk_score} / 100"))
+        form.addRow("Risk Level:", QLabel(str(risk_level)))
+        form.addRow("Recommended Action:", QLabel(str(action)))
+        form.addRow("Explanation:", QLabel(exp_text))
+
+        layout.addLayout(form)
+        layout.addStretch()
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
 
 
 class History(QWidget):
@@ -116,6 +166,13 @@ class History(QWidget):
         self.table = QTableWidget()
 
         self.table.setColumnCount(7)
+        self.table.setMinimumHeight(420)
+        self.table.setMaximumHeight(500)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(True)
+        self.table.setShowGrid(True)
+        self.table.setAlternatingRowColors(True)
 
         self.table.setHorizontalHeaderLabels([
             "ID",
@@ -126,8 +183,6 @@ class History(QWidget):
             "Risk Level",
             "Action",
         ])
-
-        self.table.setAlternatingRowColors(True)
 
         self.table.setEditTriggers(
             QTableWidget.EditTrigger.NoEditTriggers
@@ -179,8 +234,16 @@ class History(QWidget):
             QHeaderView.ResizeMode.Stretch
         )
 
-        layout.addWidget(self.table)
+        # Make the history table visibly stable inside the
+        # page stack and prevent the extra row-header column
+        # from visually collapsing the content region.
+        self.table.setSizeAdjustPolicy(
+            QTableWidget.SizeAdjustPolicy.AdjustToContents
+        )
 
+        self.table.cellDoubleClicked.connect(self.show_record_details)
+
+        layout.addWidget(self.table)
         self.setLayout(layout)
 
         # Store records for filtering
@@ -188,6 +251,18 @@ class History(QWidget):
 
         # Initial load
         self.load_history()
+
+    # ================================================================
+    # SHOW RECORD DETAILS
+    # ================================================================
+
+    def show_record_details(self, row, column):
+        item = self.table.item(row, 0)
+        if item:
+            record_data = item.data(Qt.ItemDataRole.UserRole)
+            if record_data:
+                dialog = DetectionDetailsDialog(record_data, self)
+                dialog.exec()
 
     # ================================================================
     # LOAD HISTORY
@@ -307,6 +382,21 @@ class History(QWidget):
                     item.setTextAlignment(
                         Qt.AlignmentFlag.AlignCenter
                     )
+
+                    # Risk Level color formatting (Column 5)
+                    if column == 5:
+                        rl = str(value).lower()
+                        if "critical" in rl:
+                            item.setForeground(QColor("#dc2626"))  # Red
+                        elif "high" in rl:
+                            item.setForeground(QColor("#ea580c"))  # Orange
+                        elif "medium" in rl:
+                            item.setForeground(QColor("#d97706"))  # Amber/Yellow
+                        else:
+                            item.setForeground(QColor("#16a34a"))  # Green
+
+                    # Store full row data in item payload for details dialog
+                    item.setData(Qt.ItemDataRole.UserRole, row_data)
 
                     self.table.setItem(
                         row,
