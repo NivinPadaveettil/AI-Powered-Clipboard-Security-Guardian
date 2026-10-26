@@ -67,7 +67,162 @@
 
 ---
 
-## Slide 6: Model Performance & Accuracy Graphs
+## Slide 6: About DistilBERT — Architecture Deep Dive
+
+### What is DistilBERT?
+
+**DistilBERT** (Distilled BERT) is a compressed version of BERT developed by Hugging Face using **knowledge distillation**, where a smaller "student" model is trained to replicate the behavior of a larger "teacher" model (BERT).
+
+### Architecture Specifications
+
+| Property | BERT-base | DistilBERT |
+| :--- | :---: | :---: |
+| **Transformer Layers** | 12 | **6** |
+| **Attention Heads** | 12 | 12 |
+| **Hidden Dimensions** | 768 | 768 |
+| **Parameters** | 110M | **66M** |
+| **Speed vs BERT** | 1× | **1.6× faster** |
+| **Size vs BERT** | 100% | **40% smaller** |
+| **Performance vs BERT** | 100% | **97%** retained |
+
+### Core Architecture Components
+
+1. **WordPiece Tokenizer** — Breaks text into sub-word tokens (max 128 tokens for this project).
+2. **Embedding Layer** — Converts tokens to 768-dimensional dense vectors.
+3. **6× Transformer Encoder Blocks** — Each block contains:
+   - Multi-Head Self-Attention (12 heads)
+   - Feed-Forward Network (FFN) with GELU activation
+   - Layer Normalization & Residual Connections
+4. **Classification Head** — A fully connected dense layer mapping hidden states → 8 category logits.
+5. **Softmax Output** — Converts logits to probability scores per category.
+
+### Knowledge Distillation (How DistilBERT Was Created)
+
+```
+Teacher Model (BERT-base, 110M params)
+        ↓  Soft Labels + Hidden State Matching
+Student Model (DistilBERT, 66M params)
+        ↓  Fine-tuned on our dataset
+Clipboard Security Classifier (8 classes)
+```
+
+---
+
+## Slide 7: DistilBERT Model Training Workflow
+
+### Training Pipeline
+
+```mermaid
+flowchart TD
+    A["📂 Raw Dataset\n56,359 Records\n8 Categories"] --> B["🔀 Dataset Split\nTrain 80% · Val 10% · Test 10%"]
+    B --> C["🔡 WordPiece Tokenization\nDistilBertTokenizerFast\nmax_length=128, truncation=True"]
+    C --> D["🏋️ Pre-trained Weights Loaded\ndistilbert-base-uncased\nfrom HuggingFace Hub"]
+    D --> E["⚖️ Class Weights Computed\nSklearn compute_class_weight\nBalanced weighting per category"]
+    E --> F["🚀 Fine-Tuning\n4 Epochs · LR=2e-5\nBatch=16 · Weight Decay=0.01\nFP16 Mixed Precision"]
+    F --> G["📊 Epoch Evaluation\nAccuracy · Precision\nRecall · F1-Score"]
+    G --> H{"Best Model\nSelected by F1?"}
+    H -- "Yes ✅" --> I["💾 Save Best Model\nmodels/distilbert_clipboard/"]
+    H -- "No 🔄" --> F
+    I --> J["🧪 Final Test Evaluation\n5,637 Test Samples\n99.98% Accuracy"]
+```
+
+### Training Hyperparameters
+
+| Parameter | Value |
+| :--- | :---: |
+| **Pre-trained Model** | `distilbert-base-uncased` |
+| **Epochs** | 4 |
+| **Learning Rate** | `2e-5` |
+| **Batch Size** | 16 (train & eval) |
+| **Max Token Length** | 128 |
+| **Weight Decay** | 0.01 |
+| **Best Model Metric** | F1-Score |
+| **Mixed Precision (FP16)** | GPU auto-enabled |
+| **Class Balancing** | `compute_class_weight="balanced"` |
+
+### Inference Pipeline (Real-Time, `predict.py`)
+
+```python
+# 1. Tokenize clipboard text
+inputs = tokenizer(text, truncation=True, max_length=128)
+
+# 2. Model forward pass (no gradient needed)
+with torch.no_grad():
+    outputs = model(**inputs)
+
+# 3. Softmax → probabilities
+probabilities = torch.softmax(outputs.logits, dim=1)
+
+# 4. Argmax → predicted label + confidence
+label, confidence = torch.max(probabilities, dim=1)
+```
+
+---
+
+## Slide 8: Project End-to-End Workflow
+
+### Full System Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph USER["👤 User Action"]
+        A["User presses Ctrl+C\nText copied to clipboard"]
+    end
+
+    subgraph MONITOR["🖥️ Clipboard Monitor\nclipboard_monitor.py"]
+        B["Polling every 0.5s\nDetects new clipboard content"]
+        C["Text extracted\nfrom OS clipboard buffer"]
+    end
+
+    subgraph AI["🤖 AI Engine\npredict.py"]
+        D["DistilBertTokenizerFast\nTokenizes text → input_ids"]
+        E["DistilBertForSequenceClassification\n6-layer Transformer inference"]
+        F["Softmax probabilities\nover 8 categories"]
+        G["Predicted Label + Confidence\ne.g., password · 99.9%"]
+    end
+
+    subgraph RISK["⚡ Risk Scoring Engine\nrisk_scoring.py"]
+        H["Risk Score Calculation\n0–100 based on category\n& confidence"]
+        I{"Risk Level?"}
+        J["🔴 Critical/High\nAuto-clear clipboard\nin 10–20s"]
+        K["🟡 Medium\nAlert user · monitor"]
+        L["🟢 Low / Safe\nNo action taken"]
+    end
+
+    subgraph STORE["🗄️ Audit Logging\nSQLite Database"]
+        M["Log metadata only\nNo raw text stored\nTimestamp · Category · Risk"]
+    end
+
+    subgraph UI["📊 User Interfaces"]
+        N["🌐 Flask Web Dashboard\nhttp://127.0.0.1:5000\nLive stats · Detection log"]
+        O["🖥️ PyQt6 Desktop GUI\nSystem tray · Notifications\nReal-time alerts"]
+    end
+
+    A --> B --> C --> D --> E --> F --> G
+    G --> H --> I
+    I --> J
+    I --> K
+    I --> L
+    J --> M
+    K --> M
+    L --> M
+    M --> N
+    M --> O
+```
+
+### Risk Level → Auto-Clear Timeout Mapping
+
+| Category | Risk Level | Risk Score | Auto-Clear |
+| :--- | :---: | :---: | :---: |
+| `password`, `ssh_key` | 🔴 Critical | 100 | **10 – 15 seconds** |
+| `api_key`, `jwt` | 🔴 Critical | 90 – 95 | **15 – 20 seconds** |
+| `db_credentials`, `payment` | 🔴 High | 80 – 90 | **20 – 25 seconds** |
+| `otp` | 🟡 Medium | 60 – 70 | **25 – 30 seconds** |
+| `safe` | 🟢 Low | 0 | **No action** |
+
+---
+
+## Slide 9: Model Performance & Accuracy Graphs
 
 ### Evaluation Metrics (5,637 Test Samples)
 
@@ -94,7 +249,7 @@ pie title Classification Accuracy Across Categories
 
 ---
 
-## Slide 7: Key Features & Workflows
+## Slide 10: Key Features & Workflows
 
 ### How It Works
 
@@ -108,7 +263,7 @@ pie title Classification Accuracy Across Categories
 
 ---
 
-## Slide 8: Web Application Implementation (`web_app.py`)
+## Slide 11: Web Application Implementation (`web_app.py`)
 
 ### Core Flask API Code Snippet
 
@@ -145,7 +300,7 @@ if __name__ == "__main__":
 
 ---
 
-## Slide 9: User Interfaces
+## Slide 12: User Interfaces
 
 ### Desktop & Web Dashboards
 
@@ -154,7 +309,7 @@ if __name__ == "__main__":
 
 ---
 
-## Slide 10: Conclusion & Future Scope
+## Slide 13: Conclusion & Future Scope
 
 ### Summary & Next Steps
 

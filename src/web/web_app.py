@@ -1,6 +1,7 @@
 from pathlib import Path
 from flask import Flask, render_template, jsonify, request
 import sys
+import threading
 
 from src.database.sqlite_logger import logger
 from src.config.settings_manager import settings_manager
@@ -8,6 +9,7 @@ from src.predict import predict
 from src.core.risk_scoring import calculate_risk, RISK_TABLE
 from src.services.startup_service import StartupService
 from src.utils.app_logger import app_logger
+from src.core.clipboard_monitor import ClipboardMonitor
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 WEB_DIR = Path(__file__).resolve().parent
@@ -159,4 +161,17 @@ if __name__ == "__main__":
     print("Starting AI Security Clipboard Guardian Web Server...")
     print("Web Dashboard available at: http://127.0.0.1:5000")
     print("=" * 60)
+
+    # ── Start AI clipboard monitor in background thread ──────────
+    monitor = ClipboardMonitor()
+    monitor_thread = threading.Thread(
+        target=monitor.monitor,
+        daemon=True,
+        name="ClipboardMonitorThread",
+    )
+    monitor_thread.start()
+    print("[AI Monitor] Clipboard monitoring started in background.")
+    print("=" * 60)
+    # ─────────────────────────────────────────────────────────────
+
     app.run(host="127.0.0.1", port=5000, debug=False)
